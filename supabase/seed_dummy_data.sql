@@ -1,0 +1,11 @@
+insert into children_profiles (id, parent_name, parent_phone, child_name, child_age, photo_url, entry_type, allergies, medical_info, is_sick, has_injury, injury_notes, emergency_contact_name, emergency_contact_phone, whatsapp_consent, responsibility_consent_signed) values
+  ('48185374-07b9-430d-b324-9e5ac073d61b', 'Sara Ahmed', '+201001112223', 'Yousef Ahmed', 4, NULL, 'Parent', 'Peanut Allergy', NULL, false, false, NULL, 'Sara Ahmed', '+201001112223', false, false),
+  ('9644ca23-ba75-4d7d-8aef-e48913642a18', 'Mostafa Ali', '+201002223334', 'Laila Ali', 7, NULL, 'Parent', NULL, NULL, false, false, NULL, 'Mostafa Ali', '+201002223334', false, false),
+  ('55eb1252-30a1-4632-8fce-6873d9cf1e0c', 'Nourhan Kamal', '+201003334445', 'Omar Kamal', 3, NULL, 'Nanny/Driver', 'Dairy Allergy', 'Mild asthma - inhaler in bag', false, false, NULL, 'Nourhan Kamal', '+201003334445', true, false),
+  ('b4e97a36-b5f5-4fa4-972c-abb7b51044d5', 'Heba Mostafa', '+201004445556', 'Adam Mostafa', 6, NULL, 'Nanny/Driver', NULL, NULL, false, false, NULL, 'Heba Mostafa', '+201004445556', false, false),
+  ('f0487da7-2c99-4255-83ba-3f6f6a901318', 'Amr Hassan', '+201005556667', 'Sama Hassan', 5, NULL, 'Parent', NULL, 'High fever this morning', true, false, NULL, 'Amr Hassan', '+201005556667', false, true),
+  ('b4e375e3-123d-41ed-afa5-d13028b15e02', 'Dina Fathy', '+201006667778', 'Jana Fathy', 8, NULL, 'Parent', NULL, 'Recovering from flu', true, false, NULL, 'Dina Fathy', '+201006667778', false, false),
+  ('014e7c3e-d622-4d35-b11a-b6553ce6ed7e', 'Karim Mahmoud', '+201007778889', 'Ziad Mahmoud', 4, NULL, 'Parent', NULL, NULL, false, true, 'Broken left arm - in cast', 'Karim Mahmoud', '+201007778889', false, true),
+  ('684b4aeb-946e-400d-b9a9-679597a17a21', 'Yasmin Adel', '+201008889990', 'Nour Adel', 9, NULL, 'Parent', NULL, NULL, false, true, 'Sprained ankle', 'Yasmin Adel', '+201008889990', false, false),
+  ('bfaf56e0-7b11-4951-af48-322c298360f9', 'Tarek Saeed', '+201009990001', 'Habiba Saeed', 2, NULL, 'Nanny/Driver', 'Egg Allergy', NULL, false, false, NULL, 'Tarek Saeed', '+201009990001', true, false),
+  ('2a3cd17f-498f-425c-b6da-01c74b8434cd', 'Rana Ibrahim', '+201000001112', 'Malak Ibrahim', 10, NULL, 'Parent', NULL, NULL, false, false, NULL, 'Rana Ibrahim', '+201000001112', false, false);
