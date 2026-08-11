@@ -31,7 +31,7 @@ export default async function LoginPage({
               name="staffName"
               type="text"
               required
-              placeholder="e.g. Mona"
+              placeholder="e.g. Ahmed Khaled"
               className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-400"
             />
           </div>
