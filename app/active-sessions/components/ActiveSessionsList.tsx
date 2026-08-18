@@ -1,9 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { confirmCheckOut, addCafeteriaItem, settleCafeteriaPayment } from "../../dashboard/actions";
-import type { ActiveSession, CafeteriaItemName, PaymentMethod } from "@/lib/types";
-import { CAFETERIA_ITEMS, CAFETERIA_ICONS, CAFETERIA_PRICES, PAYMENT_METHODS, PAYMENT_METHOD_ICONS } from "@/lib/types";
+import { confirmCheckOut, addSessionItem, settleCafeteriaPayment } from "../../dashboard/actions";
+import type { ActiveSession, PaymentMethod } from "@/lib/types";
+import {
+  CAFETERIA_ITEMS,
+  CAFETERIA_ICONS,
+  CAFETERIA_PRICES,
+  EXTRA_HOUR_OPTIONS,
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_ICONS,
+} from "@/lib/types";
 
 function formatElapsed(checkInTime: string) {
   const mins = Math.floor((Date.now() - new Date(checkInTime).getTime()) / 60000);
@@ -14,7 +21,6 @@ function formatElapsed(checkInTime: string) {
 
 export default function ActiveSessionsList({ sessions }: { sessions: ActiveSession[] }) {
   const [checkedOutIds, setCheckedOutIds] = useState<Set<string>>(new Set());
-
   const visible = sessions.filter((s) => !checkedOutIds.has(s.id));
 
   if (visible.length === 0) {
@@ -39,13 +45,7 @@ export default function ActiveSessionsList({ sessions }: { sessions: ActiveSessi
   );
 }
 
-function SessionCard({
-  session,
-  onCheckedOut,
-}: {
-  session: ActiveSession;
-  onCheckedOut: () => void;
-}) {
+function SessionCard({ session, onCheckedOut }: { session: ActiveSession; onCheckedOut: () => void }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showSettlePicker, setShowSettlePicker] = useState(false);
@@ -54,10 +54,10 @@ function SessionCard({
   const hasPending = pendingOrders.length > 0;
   const pendingTotal = pendingOrders.reduce((sum, o) => sum + Number(o.price), 0);
 
-  function handleAddItem(item: CafeteriaItemName) {
+  function handleAddItem(item: string, price: number) {
     setError(null);
     startTransition(async () => {
-      const res = await addCafeteriaItem({ checkInId: session.id, item });
+      const res = await addSessionItem({ checkInId: session.id, item, price });
       if (!res.ok) setError(res.error);
     });
   }
@@ -73,7 +73,7 @@ function SessionCard({
 
   function handleCheckOut() {
     if (hasPending) {
-      setError("Settle the cafeteria bill before checking out.");
+      setError("Settle the pending bill before checking out.");
       return;
     }
     setError(null);
@@ -90,7 +90,6 @@ function SessionCard({
         hasPending ? "border-red-400 bg-red-50" : "border-transparent bg-white"
       }`}
     >
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <p className="font-bold text-gray-900 flex items-center gap-1.5">
@@ -113,13 +112,30 @@ function SessionCard({
         </button>
       </div>
 
-      {/* Pending payment alert */}
       {hasPending && (
         <div className="rounded-xl bg-red-100 border border-red-300 px-3 py-2 text-sm text-red-800">
-          🚨 <span className="font-semibold">Pending cafeteria payment:</span>{" "}
+          🚨 <span className="font-semibold">Pending payment:</span>{" "}
           {pendingOrders.map((o) => o.item).join(", ")} — total {pendingTotal}
         </div>
       )}
+
+      {/* Extra Hours — sits above cafeteria items */}
+      <div>
+        <p className="text-xs font-medium text-gray-500 mb-1.5">⏰ Extra Hours</p>
+        <div className="grid grid-cols-4 gap-2">
+          {EXTRA_HOUR_OPTIONS.map((opt) => (
+            <button
+              key={opt.label}
+              disabled={isPending}
+              onClick={() => handleAddItem(opt.label, opt.price)}
+              className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 py-2 text-[11px] font-medium text-amber-800 disabled:opacity-50"
+            >
+              <span>{opt.label}</span>
+              <span className="text-[10px] text-amber-600">{opt.price}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Cafeteria icon buttons */}
       <div>
@@ -129,8 +145,8 @@ function SessionCard({
             <button
               key={item}
               disabled={isPending}
-              onClick={() => handleAddItem(item)}
-              className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-gray-50 hover:bg-indigo-50 border border-gray-200 py-2 text-xs font-medium text-gray-700 disabled:opacity-50"
+              onClick={() => handleAddItem(item, CAFETERIA_PRICES[item])}
+              className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-gray-50 hover:bg-indigo-50 border border-gray-200 py-2 text-[11px] font-medium text-gray-700 disabled:opacity-50 text-center leading-tight"
               title={`${item} · ${CAFETERIA_PRICES[item]}`}
             >
               <span className="text-lg leading-none">{CAFETERIA_ICONS[item]}</span>
@@ -146,7 +162,7 @@ function SessionCard({
           onClick={() => setShowSettlePicker(true)}
           className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold py-2.5 text-sm"
         >
-          💳 Settle Cafeteria Payment ({pendingTotal})
+          💳 Settle Payment ({pendingTotal})
         </button>
       )}
 
@@ -175,9 +191,7 @@ function SessionCard({
         </div>
       )}
 
-      {error && (
-        <div className="rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>
-      )}
+      {error && <div className="rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>}
     </div>
   );
 }
