@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/active-sessions"];
+const PROTECTED_PREFIXES = ["/dashboard", "/active-sessions", "/admin"];
 
 export function middleware(req: NextRequest) {
   const isProtected = PROTECTED_PREFIXES.some((p) =>
@@ -17,5 +17,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/active-sessions/:path*"],
+  matcher: ["/dashboard/:path*", "/active-sessions/:path*", "/admin/:path*"],
 };

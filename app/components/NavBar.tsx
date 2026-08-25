@@ -1,9 +1,9 @@
 import Link from "next/link";
 
-export default function NavBar({ active }: { active: "dashboard" | "sessions" }) {
+export default function NavBar({ active }: { active: "dashboard" | "sessions" | "admin" }) {
   const item = (
     href: string,
-    key: "dashboard" | "sessions",
+    key: "dashboard" | "sessions" | "admin",
     icon: string,
     label: string
   ) => (
@@ -22,6 +22,7 @@ export default function NavBar({ active }: { active: "dashboard" | "sessions" })
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 max-w-md mx-auto flex">
       {item("/dashboard", "dashboard", "📷", "Scanner")}
       {item("/active-sessions", "sessions", "👥", "Active")}
+      {item("/admin", "admin", "⚙️", "Admin")}
     </nav>
   );
 }
