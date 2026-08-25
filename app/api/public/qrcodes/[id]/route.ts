@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStaffSession } from "@/lib/auth";
 import { getSupabaseServerClient } from "@/lib/supabase";
-import { generateQrPng, qrFileName } from "@/lib/qrcode";
+import { generateQrPng } from "@/lib/qrcode";
 
+// Intentionally NOT behind staff auth — WhatsApp's servers fetch this URL
+// directly to attach the QR image to the message, and can't send our staff
+// login cookie. Safe because the id is an unguessable UUID and this route
+// only ever returns a QR image (no personal data).
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const staff = await getStaffSession();
-  if (!staff) return new NextResponse("Unauthorized", { status: 401 });
-
   const { id } = await params;
   const supabase = getSupabaseServerClient();
   const { data: child, error } = await supabase
     .from("children_profiles")
-    .select("id, child_name")
+    .select("id")
     .eq("id", id)
     .single();
 
@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   return new NextResponse(new Uint8Array(png), {
     headers: {
       "Content-Type": "image/png",
-      "Content-Disposition": `attachment; filename="${qrFileName(child.child_name, child.id)}"`,
+      "Cache-Control": "public, max-age=31536000, immutable",
     },
   });
 }
