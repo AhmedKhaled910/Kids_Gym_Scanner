@@ -21,11 +21,14 @@ import { getSupabaseServerClient } from "@/lib/supabase";
  * O: Responsibility Consent Signed (TRUE/FALSE)
  *
  * Sync behaviour:
- * - Row with a blank Child ID  -> inserted as a new children_profiles row,
- *   then the generated UUID is written back into column A of that row.
- * - Row with a Child ID already filled -> that children_profiles row is
- *   UPDATED from the sheet's current values (so edits made directly in the
- *   sheet are picked up on the next sync).
+ * - Row with a blank Child ID  -> inserted as new, then the generated UUID
+ *   is written back into column A.
+ * - Row with a Child ID that matches an existing children_profiles row ->
+ *   that row is UPDATED from the sheet's current values.
+ * - Row with a Child ID that does NOT match anything in the database (e.g.
+ *   a stray/duplicated value from dragging a cell down) -> self-heals by
+ *   inserting a new row anyway and overwriting column A with the correct
+ *   new ID, so it doesn't silently do nothing.
  */
 
 const TAB_NAME = "Registrations";
@@ -47,8 +50,6 @@ function getSheetsClient() {
 }
 
 function spreadsheetId() {
-  // Falls back to the same spreadsheet used for the daily check-in log if a
-  // separate registrations spreadsheet isn't configured.
   return (
     process.env.GOOGLE_REGISTRATIONS_SPREADSHEET_ID ||
     process.env.GOOGLE_SHEETS_SPREADSHEET_ID
@@ -64,15 +65,22 @@ export type SyncResult = {
   created: number;
   updated: number;
   skipped: number;
+  healed: number; // rows whose Child ID didn't match anything and got re-created
   errors: string[];
 };
 
 export async function syncRegistrations(): Promise<SyncResult> {
-  const result: SyncResult = { ok: false, created: 0, updated: 0, skipped: 0, errors: [] };
+  const result: SyncResult = {
+    ok: false,
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    healed: 0,
+    errors: [],
+  };
 
   const sheets = getSheetsClient();
   const id = spreadsheetId();
-  
   if (!sheets || !id) {
     result.errors.push(
       "Google Sheets is not configured (GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_PRIVATE_KEY / GOOGLE_SHEETS_SPREADSHEET_ID)."
@@ -81,7 +89,7 @@ export async function syncRegistrations(): Promise<SyncResult> {
   }
 
   const supabase = getSupabaseServerClient();
- 
+
   let rows;
   try {
     const res = await sheets.spreadsheets.values.get({
@@ -98,7 +106,7 @@ export async function syncRegistrations(): Promise<SyncResult> {
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const sheetRowNumber = i + 2; // +2: header is row 1, data starts row 2
+    const sheetRowNumber = i + 2;
     const [
       childId,
       parentName,
@@ -119,7 +127,7 @@ export async function syncRegistrations(): Promise<SyncResult> {
 
     if (!parentName && !childName) {
       result.skipped++;
-      continue; // blank row
+      continue;
     }
 
     const record = {
@@ -140,16 +148,41 @@ export async function syncRegistrations(): Promise<SyncResult> {
     };
 
     try {
-      if (childId && childId.trim()) {
-        // Already imported — update in place.
-        const { error } = await supabase
+      const trimmedId = childId ? childId.trim() : "";
+
+      if (trimmedId) {
+        // Try to update — but verify a row actually matched.
+        const { data: updatedRows, error } = await supabase
           .from("children_profiles")
           .update(record)
-          .eq("id", childId.trim());
+          .eq("id", trimmedId)
+          .select("id");
+
         if (error) throw error;
-        result.updated++;
+
+        if (updatedRows && updatedRows.length > 0) {
+          result.updated++;
+          continue;
+        }
+
+        // No row matched this ID — it's stale/invalid. Self-heal: insert
+        // as new and overwrite column A with the correct ID.
+        const { data: inserted, error: insertError } = await supabase
+          .from("children_profiles")
+          .insert(record)
+          .select("id")
+          .single();
+        if (insertError || !inserted) throw insertError ?? new Error("Insert failed");
+
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: id,
+          range: `${TAB_NAME}!A${sheetRowNumber}`,
+          valueInputOption: "RAW",
+          requestBody: { values: [[inserted.id]] },
+        });
+        result.healed++;
       } else {
-        // New family — insert, then write the generated ID back to the sheet.
+        // Blank Child ID — brand new family.
         const { data: inserted, error } = await supabase
           .from("children_profiles")
           .insert(record)
