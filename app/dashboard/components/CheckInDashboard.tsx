@@ -25,14 +25,20 @@ export default function CheckInDashboard() {
     setError(null);
     setStep("loading");
     startTransition(async () => {
-      const res = await fetchAndValidateChild(id);
-      if (!res.ok) {
-        setError(res.error);
+      try {
+        const res = await fetchAndValidateChild(id);
+        if (!res.ok) {
+          setError(res.error);
+          setStep("idle");
+          return;
+        }
+        setResult(res.data);
+        setStep("result");
+      } catch (err) {
+        console.error("Lookup failed unexpectedly:", err);
+        setError("Something went wrong looking that up. Please try again.");
         setStep("idle");
-        return;
       }
-      setResult(res.data);
-      setStep("result");
     });
   }
 
@@ -40,16 +46,27 @@ export default function CheckInDashboard() {
     if (!result) return;
     setError(null);
     startTransition(async () => {
-      const res = await confirmCheckIn({
-        childId: result.child.id,
-        duration,
-        paymentMethod,
-      });
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await confirmCheckIn({
+          childId: result.child.id,
+          duration,
+          paymentMethod,
+        });
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        setStep("success");
+      } catch (err) {
+        // The check-in itself may well have already gone through on the
+        // server even if this request errored out — don't leave the
+        // screen stuck. Tell the staff plainly and let them check
+        // Active Sessions rather than guessing from a frozen screen.
+        console.error("Check-in request failed unexpectedly:", err);
+        setError(
+          "Something went wrong confirming this. Check the Active Sessions tab — the check-in may have already gone through. If not, try again."
+        );
       }
-      setStep("success");
     });
   }
 
@@ -165,7 +182,6 @@ function ValidationView({
 
   return (
     <div className="mt-4 space-y-4">
-      {/* Header card */}
       <div className="bg-white rounded-2xl shadow-md p-5 flex items-center gap-4">
         <div className="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center text-2xl overflow-hidden shrink-0">
           {child.photo_url ? (
@@ -184,30 +200,24 @@ function ValidationView({
         </div>
       </div>
 
-      {/* Global safety alerts */}
       {(child.allergies || child.medical_info) && (
         <div className="rounded-2xl bg-red-50 border border-red-200 p-4 space-y-1">
           {child.allergies && (
             <p className="text-red-700 font-semibold text-sm">🚨 ALLERGY: {child.allergies}</p>
           )}
-          {child.medical_info && (
-            <p className="text-red-700 text-sm">🩺 {child.medical_info}</p>
-          )}
+          {child.medical_info && <p className="text-red-700 text-sm">🩺 {child.medical_info}</p>}
         </div>
       )}
 
       {(child.emergency_contact_name || child.emergency_contact_phone) && (
         <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
-          📞 <span className="font-semibold">Emergency Contact:</span>{" "}
-          {child.emergency_contact_name} {child.emergency_contact_phone && `— ${child.emergency_contact_phone}`}
+          📞 <span className="font-semibold">Emergency Contact:</span> {child.emergency_contact_name}{" "}
+          {child.emergency_contact_phone && `— ${child.emergency_contact_phone}`}
         </div>
       )}
 
-      {/* Rule checklist */}
       <div className="rounded-2xl bg-white shadow-md p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-          Entry Rules
-        </h3>
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Entry Rules</h3>
         {rules.map((rule) => (
           <div
             key={rule.key}
@@ -225,11 +235,8 @@ function ValidationView({
         ))}
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>
-      )}
+      {error && <div className="rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>}
 
-      {/* Payment section — only if all blocking rules passed */}
       {canCheckIn ? (
         <div className="rounded-2xl bg-white shadow-md p-4 space-y-4">
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">

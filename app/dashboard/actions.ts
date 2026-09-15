@@ -7,11 +7,6 @@ import { revalidatePath } from "next/cache";
 import type { ChildProfile, RuleCheck, ValidationResult, PaymentMethod } from "@/lib/types";
 import { DURATION_PRICES } from "@/lib/types";
 
-/**
- * Fetches a child's profile by QR/UUID and runs every business rule
- * from the process map. Returns pass/fail state per rule so the UI
- * can render green checks / red crosses, plus an overall canCheckIn flag.
- */
 export async function fetchAndValidateChild(
   rawScannedId: string
 ): Promise<{ ok: true; data: ValidationResult } | { ok: false; error: string }> {
@@ -81,7 +76,13 @@ export async function fetchAndValidateChild(
   return { ok: true, data: { child, rules, canCheckIn } };
 }
 
-/** Confirms check-in and creates the child's row in today's Google Sheet tab. */
+/**
+ * Confirms check-in. The Supabase insert is the only step that can make
+ * this fail — everything after it (fetching child info for the log,
+ * writing to Google Sheets) is wrapped so it NEVER throws back to the
+ * caller. If the insert succeeded, the check-in is real and this always
+ * returns { ok: true }, even if the Sheets logging silently failed.
+ */
 export async function confirmCheckIn(input: {
   childId: string;
   duration: string;
@@ -120,27 +121,38 @@ export async function confirmCheckIn(input: {
 
   if (error || !inserted) return { ok: false, error: error?.message ?? "Insert failed." };
 
-  const { data: child } = await supabase
-    .from("children_profiles")
-    .select("child_name, parent_name")
-    .eq("id", input.childId)
-    .single();
+  // From here on, the check-in is already saved — nothing below is allowed
+  // to make this function throw, or the UI would wrongly show an error /
+  // hang for a check-in that actually succeeded.
+  try {
+    const { data: child } = await supabase
+      .from("children_profiles")
+      .select("child_name, parent_name")
+      .eq("id", input.childId)
+      .single();
 
-  await sheetCreateCheckInRow({
-    checkInId: inserted.id,
-    parentName: child?.parent_name ?? "",
-    childName: child?.child_name ?? "",
-    duration: input.duration,
-    entryAmount: price,
-    entryPayment: input.paymentMethod,
-    staff: staffId,
-  });
+    await sheetCreateCheckInRow({
+      checkInId: inserted.id,
+      parentName: child?.parent_name ?? "",
+      childName: child?.child_name ?? "",
+      duration: input.duration,
+      entryAmount: price,
+      entryPayment: input.paymentMethod,
+      staff: staffId,
+    });
+  } catch (err) {
+    console.error("Post-check-in logging failed (check-in itself still succeeded):", err);
+  }
 
-  revalidatePath("/active-sessions");
+  try {
+    revalidatePath("/active-sessions");
+  } catch (err) {
+    console.error("revalidatePath failed:", err);
+  }
+
   return { ok: true };
 }
 
-/** Lists all children currently checked in, including their cafeteria/extra-hours orders. */
 export async function getActiveSessions() {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
@@ -161,7 +173,6 @@ export async function getActiveSessions() {
   }));
 }
 
-/** Checks a child out: stamps check_out_time, fills in the Sheet's check-out column. */
 export async function confirmCheckOut(
   checkInId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -174,18 +185,21 @@ export async function confirmCheckOut(
 
   if (error) return { ok: false, error: error.message };
 
-  await sheetSetCheckOutTime(checkInId);
+  try {
+    await sheetSetCheckOutTime(checkInId);
+  } catch (err) {
+    console.error("Sheets check-out log failed (check-out itself still succeeded):", err);
+  }
 
-  revalidatePath("/active-sessions");
+  try {
+    revalidatePath("/active-sessions");
+  } catch (err) {
+    console.error("revalidatePath failed:", err);
+  }
+
   return { ok: true };
 }
 
-/**
- * Adds one add-on to a checked-in child — either a cafeteria item or an
- * Extra Hours option. Both share the same pending/settle flow. The caller
- * passes the exact item label and its price (from CAFETERIA_PRICES or
- * EXTRA_HOUR_OPTIONS in lib/types.ts).
- */
 export async function addSessionItem(input: {
   checkInId: string;
   item: string;
@@ -201,13 +215,21 @@ export async function addSessionItem(input: {
 
   if (error) return { ok: false, error: error.message };
 
-  await sheetRecordAddon({ checkInId: input.checkInId, item: input.item, price: input.price });
+  try {
+    await sheetRecordAddon({ checkInId: input.checkInId, item: input.item, price: input.price });
+  } catch (err) {
+    console.error("Sheets add-on log failed (order itself still succeeded):", err);
+  }
 
-  revalidatePath("/active-sessions");
+  try {
+    revalidatePath("/active-sessions");
+  } catch (err) {
+    console.error("revalidatePath failed:", err);
+  }
+
   return { ok: true };
 }
 
-/** Marks all pending add-ons for a check-in as paid with the given method. */
 export async function settleCafeteriaPayment(
   checkInId: string,
   paymentMethod: PaymentMethod
@@ -222,6 +244,11 @@ export async function settleCafeteriaPayment(
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/active-sessions");
+  try {
+    revalidatePath("/active-sessions");
+  } catch (err) {
+    console.error("revalidatePath failed:", err);
+  }
+
   return { ok: true };
 }
