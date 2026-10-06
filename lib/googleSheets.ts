@@ -232,26 +232,85 @@ export async function sheetRecordAddon(input: {
 }) {
   try {
     const cfg = config();
-    if (!cfg) return;
-    const rowNumber = await findRowNumber(cfg.spreadsheetId, cfg.tabName, input.checkInId);
-    if (!rowNumber) return;
-    const row = await readRow(cfg.spreadsheetId, cfg.tabName, rowNumber);
-    if (!row) return;
 
-    const itemIndex = ITEM_COLUMNS.indexOf(input.item as any);
-    if (itemIndex !== -1) {
-      const col = COL.itemsStart + itemIndex;
-      row[col] = Number(row[col] || 0) + 1;
-      row[COL.cafeteriaTotal] = Number(row[COL.cafeteriaTotal] || 0) + input.price;
-    } else {
-      // treat as an extra-hours add-on
-      const existingLabel = String(row[COL.extraHoursLabel] || "");
-      row[COL.extraHoursLabel] = existingLabel ? `${existingLabel}, ${input.item}` : input.item;
-      row[COL.extraHoursAmount] = Number(row[COL.extraHoursAmount] || 0) + input.price;
+    if (!cfg) {
+      console.error("Sheets add-on skipped: Google Sheets is not configured.");
+      return;
     }
 
-    await writeRow(cfg.spreadsheetId, cfg.tabName, rowNumber, row);
+    console.log("Sheets add-on started:", {
+      tabName: cfg.tabName,
+      checkInId: input.checkInId,
+      item: input.item,
+      price: input.price,
+    });
+
+    const rowNumber = await findRowNumber(
+      cfg.spreadsheetId,
+      cfg.tabName,
+      input.checkInId
+    );
+
+    if (!rowNumber) {
+      console.error("Sheets add-on skipped: check-in row was not found.", {
+        tabName: cfg.tabName,
+        checkInId: input.checkInId,
+      });
+      return;
+    }
+
+    const row = await readRow(
+      cfg.spreadsheetId,
+      cfg.tabName,
+      rowNumber
+    );
+
+    if (!row) {
+      console.error("Sheets add-on skipped: row could not be read.", {
+        tabName: cfg.tabName,
+        rowNumber,
+      });
+      return;
+    }
+
+    const itemIndex = ITEM_COLUMNS.indexOf(input.item as any);
+
+    console.log("Sheets item lookup:", {
+      item: input.item,
+      itemIndex,
+      itemColumns: ITEM_COLUMNS,
+    });
+
+    if (itemIndex !== -1) {
+      const col = COL.itemsStart + itemIndex;
+
+      row[col] = Number(row[col] || 0) + 1;
+      row[COL.cafeteriaTotal] =
+        Number(row[COL.cafeteriaTotal] || 0) + input.price;
+    } else {
+      const existingLabel = String(row[COL.extraHoursLabel] || "");
+
+      row[COL.extraHoursLabel] = existingLabel
+        ? `${existingLabel}, ${input.item}`
+        : input.item;
+
+      row[COL.extraHoursAmount] =
+        Number(row[COL.extraHoursAmount] || 0) + input.price;
+    }
+
+    await writeRow(
+      cfg.spreadsheetId,
+      cfg.tabName,
+      rowNumber,
+      row
+    );
+
+    console.log("Sheets add-on completed successfully:", {
+      tabName: cfg.tabName,
+      rowNumber,
+      item: input.item,
+    });
   } catch (err) {
-    console.error("Sheets sheetRecordAddon failed:", err);
+    console.error("Sheets add-on logging failed:", err);
   }
 }

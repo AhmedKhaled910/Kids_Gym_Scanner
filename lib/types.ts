@@ -63,41 +63,47 @@ export const EXTRA_HOUR_OPTIONS: { label: string; price: number }[] = [
 ];
 
 // ---------------- Cafeteria ----------------
-
 export const CAFETERIA_ITEMS = [
-  "Crackers",
-  "Candy - Small",
-  "Candy - Large",
-  "Juice / Soft Drink",
-  "Chocolate - Small",
-  "Chocolate - Large",
-  "Water",
-  "Socks",
+  "Drinks & Snacks - 25 LE",
+  "Fruit & Chocolate Bars - 30 LE",
+  "Premium Snacks - 35 LE",
+  "Premium Snacks - 40 LE",
+  "Jelly & Gummy - 60 LE",
+  "Kinder Collection - 80 LE",
+  "Kinder Collection - 100 LE",
+  "Popcorn - 120 LE",
+  "Meal - 300 LE",
+  "Water - 15 LE",
 ] as const;
 
 export type CafeteriaItemName = (typeof CAFETERIA_ITEMS)[number];
 
 export const CAFETERIA_ICONS: Record<CafeteriaItemName, string> = {
-  Crackers: "🍪",
-  "Candy - Small": "🍬",
-  "Candy - Large": "🍬",
-  "Juice / Soft Drink": "🥤",
-  "Chocolate - Small": "🍫",
-  "Chocolate - Large": "🍫",
-  Water: "💧",
-  Socks: "🧦",
+  "Drinks & Snacks - 25 LE": "🍫🍿",
+  "Fruit & Chocolate Bars - 30 LE": "🍓",
+  "Premium Snacks - 35 LE": "🧀",
+  "Premium Snacks - 40 LE": "🍫",
+  "Jelly & Gummy - 60 LE": "🐻🍑",
+  "Kinder Collection - 80 LE": "🍫",
+  "Kinder Collection - 100 LE": "🎁",
+  "Popcorn - 120 LE": "🍿",
+  "Meal - 300 LE": "🍽️",
+  "Water - 15 LE": "💧",
 };
 
 export const CAFETERIA_PRICES: Record<CafeteriaItemName, number> = {
-  Crackers: 25,
-  "Candy - Small": 30,
-  "Candy - Large": 60,
-  "Juice / Soft Drink": 25,
-  "Chocolate - Small": 60,
-  "Chocolate - Large": 100,
-  Water: 15,
-  Socks: 80,
+  "Drinks & Snacks - 25 LE": 25,
+  "Fruit & Chocolate Bars - 30 LE": 30,
+  "Premium Snacks - 35 LE": 35,
+  "Premium Snacks - 40 LE": 40,
+  "Jelly & Gummy - 60 LE": 60,
+  "Kinder Collection - 80 LE": 80,
+  "Kinder Collection - 100 LE": 100,
+  "Popcorn - 120 LE": 120,
+  "Meal - 300 LE": 300,
+  "Water - 15 LE": 15,
 };
+
 
 // item is a plain string (not the narrow union) because it can also hold an
 // Extra Hours label, which lives in the same order/settle flow.
@@ -125,4 +131,24 @@ export type ActiveSession = {
     parent_name: string;
   } | null;
   cafeteria_orders: CafeteriaOrder[];
+};
+
+export type LoyaltyRewardTier = "one_hour" | "two_hours";
+
+export type LoyaltyTierStatus = {
+  threshold: number;
+  label: string;
+  eligible: boolean;
+  warning: boolean;
+  redeemed: boolean;
+};
+
+export type LoyaltyStatus = {
+  childId: string;
+  childName: string;
+  parentName: string;
+  parentPhone: string | null;
+  visits: number;
+  oneHour: LoyaltyTierStatus;
+  twoHours: LoyaltyTierStatus;
 };

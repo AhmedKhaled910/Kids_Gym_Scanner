@@ -1,11 +1,14 @@
 import AdminPanel from "./components/AdminPanel";
-import { listChildrenForQr } from "./actions";
+import { getLoyaltyStatuses, listChildrenForQr } from "./actions";
 import NavBar from "@/app/components/NavBar";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  const children = await listChildrenForQr();
+  const [children, loyaltyStatuses] = await Promise.all([
+    listChildrenForQr(),
+    getLoyaltyStatuses(),
+  ]);
 
   return (
     <main className="min-h-screen bg-gray-50 pb-20">
@@ -14,9 +17,14 @@ export default async function AdminPage() {
           <h1 className="font-bold text-gray-800">⚙️ Admin</h1>
         </div>
       </header>
+
       <div className="max-w-md mx-auto px-4 mt-4">
-        <AdminPanel initialChildren={children} />
+        <AdminPanel
+          initialChildren={children}
+          initialLoyaltyStatuses={loyaltyStatuses}
+        />
       </div>
+
       <NavBar active="admin" />
     </main>
   );
